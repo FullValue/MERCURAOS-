@@ -37,7 +37,15 @@ export default async function PageFicheProduit({
         {fiche.formatLibelle} · {fiche.sku}
       </p>
 
-      <div className="mt-12 flex flex-wrap items-start gap-16">
+      {!fiche.prixLiquideRenseigne && (
+        <p className="mt-10 border-l-2 border-marque pl-4 text-[14px] text-lecture">
+          Coût à chiffrer : renseignez le prix du liquide, puis les composants et
+          le façonnage de ce format dans le{" "}
+          <Link href="/parametres" className="lien-discret">Registre des coûts</Link>.
+        </p>
+      )}
+
+      {fiche.prixLiquideRenseigne && <div className="mt-12 flex flex-wrap items-start gap-16">
         <ColonneCout
           liquide={dec.liquide}
           conditionnement={dec.conditionnement}
@@ -94,9 +102,9 @@ export default async function PageFicheProduit({
             </tr>
           </tbody>
         </table>
-      </div>
+      </div>}
 
-      {fiche.faconnage && (
+      {fiche.prixLiquideRenseigne && fiche.faconnage && (
         <SimulateurPrix
           contexte={fiche.contexte}
           dateEffet={dateEffet.toISOString()}

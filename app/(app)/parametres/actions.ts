@@ -419,7 +419,7 @@ const nomReference = z.string().trim().min(1).max(100);
 const identifiant = z.string().uuid();
 const skuReference = z.string().trim().min(1).max(80).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, "SKU invalide.");
 
-/** Le référentiel reste vide au seed : les vraies références sont saisies ici. */
+/** Les références se créent ici ou par le seed Mercura idempotent. */
 export async function creerFormat(entree: { libelle: string; volumeMl: string }) {
   await exigerUtilisateur();
   try {
@@ -431,12 +431,12 @@ export async function creerFormat(entree: { libelle: string; volumeMl: string })
   } catch (e) { return erreurAction(e); }
 }
 
-export async function creerParfum(entree: { nom: string; prixLiquideL: string }) {
+export async function creerParfum(entree: { nom: string; prixLiquideL?: string }) {
   await exigerUtilisateur();
   try {
-    const parsed = z.object({ nom: nomReference, prixLiquideL: decimalPositif }).safeParse(entree);
+    const parsed = z.object({ nom: nomReference, prixLiquideL: decimalPositif.optional().or(z.literal("")) }).safeParse(entree);
     if (!parsed.success) return { ok: false, message: "Parfum ou prix invalide." };
-    await prisma.parfum.create({ data: { nom: parsed.data.nom, prixLiquideL: parsed.data.prixLiquideL } });
+    await prisma.parfum.create({ data: { nom: parsed.data.nom, prixLiquideL: parsed.data.prixLiquideL || "0" } });
     revalider();
     return { ok: true, message: "Parfum créé." };
   } catch (e) { return erreurAction(e); }

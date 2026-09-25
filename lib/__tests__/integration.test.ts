@@ -59,6 +59,8 @@ describe.skipIf(!actif)("Parcours métier sur PostgreSQL isolé", () => {
   it("crée le référentiel Mercura sans données commerciales préchargées", async () => {
     expect((await creerFormat({ libelle: "30 ml test", volumeMl: "30" })).ok).toBe(true);
     expect((await creerParfum({ nom: "Essai olfactif", prixLiquideL: "96,5" })).ok).toBe(true);
+    expect((await creerParfum({ nom: "Parfum sans prix" })).ok).toBe(true);
+    expect((await prisma.parfum.findUniqueOrThrow({ where: { nom: "Parfum sans prix" } })).prixLiquideL.toString()).toBe("0");
     const format = await prisma.format.findUniqueOrThrow({ where: { libelle: "30 ml test" } });
     const parfum = await prisma.parfum.findUniqueOrThrow({ where: { nom: "Essai olfactif" } });
     expect(format.volumeL.toString()).toBe("0.03");

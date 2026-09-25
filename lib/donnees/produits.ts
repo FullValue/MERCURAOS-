@@ -99,6 +99,8 @@ export const chargerProduitsEnrichis = cache(async function chargerProduitsEnric
 
 export interface LigneCatalogue extends ProduitEnrichi {
   decomposition: DecompositionCout;
+  /** Un zéro technique sans historique ne constitue pas un prix du liquide. */
+  prixLiquideRenseigne: boolean;
   /**
    * Prix de cession de référence pour le filet de charge : prix de grille
    * courant le plus élevé du produit (proxy de prix catalogue). `null` si aucune
@@ -151,6 +153,8 @@ export async function chargerCatalogue(
   return produits.map((p) => ({
     ...p,
     decomposition: decompositionCout(p.contexte, date, options),
+    prixLiquideRenseigne: new Decimal(p.contexte.prixLiquideL).gt(0)
+      || valeurAuJour(p.contexte.prixLiquides ?? [], date) !== null,
     prixReference: prixRef.get(p.produitId) ?? null,
   }));
 }

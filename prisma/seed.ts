@@ -1,4 +1,4 @@
-/** Initialisation Mercura : paramètres génériques et client technique Shopify. */
+/** Initialisation Mercura : référentiel fourni, sans inventer de coûts ni de tarifs. */
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -29,6 +29,30 @@ async function main() {
       update: {},
       create: { clientId: boutique.id, role: "D2C" },
     });
+
+    const formats = await Promise.all([
+      tx.format.upsert({ where: { libelle: "50 ml" }, update: {}, create: { libelle: "50 ml", volumeL: "0.05" } }),
+      tx.format.upsert({ where: { libelle: "2 ml" }, update: {}, create: { libelle: "2 ml", volumeL: "0.002" } }),
+    ]);
+    // Zéro indique ici « prix du liquide non communiqué » ; aucune ligne de
+    // PrixLiquide, Composant, Faconnage ou GrillePrix n'est créée par le seed.
+    const parfums = await Promise.all([
+      tx.parfum.upsert({ where: { nom: "Alabama Cookie" }, update: {}, create: { nom: "Alabama Cookie", prixLiquideL: "0" } }),
+      tx.parfum.upsert({ where: { nom: "Buffalo Coffee" }, update: {}, create: { nom: "Buffalo Coffee", prixLiquideL: "0" } }),
+    ]);
+    const skus = [
+      ["ALABAMA-COOKIE-50ML", parfums[0]!.id, formats[0]!.id],
+      ["ALABAMA-COOKIE-2ML", parfums[0]!.id, formats[1]!.id],
+      ["BUFFALO-COFFEE-50ML", parfums[1]!.id, formats[0]!.id],
+      ["BUFFALO-COFFEE-2ML", parfums[1]!.id, formats[1]!.id],
+    ] as const;
+    for (const [sku, parfumId, formatId] of skus) {
+      await tx.produit.upsert({
+        where: { parfumId_formatId: { parfumId, formatId } },
+        update: {},
+        create: { sku, parfumId, formatId },
+      });
+    }
   });
 }
 

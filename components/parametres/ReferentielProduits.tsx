@@ -25,7 +25,7 @@ export function ReferentielProduits({ formats, parfums, produits }: { formats: F
   };
   return <section className="mt-8 border-t border-filet pt-8" aria-labelledby="titre-referentiel">
     <h2 id="titre-referentiel" className="font-titre text-[26px]">Référentiel Mercura</h2>
-    <p className="mt-2 text-[13px] text-lecture">Créez les formats, puis les parfums et leurs références commerciales. Le prix du liquide peut ensuite être historisé dans chaque période.</p>
+    <p className="mt-2 text-[13px] text-lecture">Créez les formats, puis les parfums et leurs références commerciales. Le prix du liquide est facultatif à la création et peut ensuite être historisé dans chaque période. Les composants et le façonnage se saisissent séparément pour chaque format.</p>
     <div className="mt-6 grid gap-8 lg:grid-cols-3">
       <form onSubmit={(e) => { e.preventDefault(); executer(() => creerFormat(format), () => setFormat({ libelle: "", volumeMl: "" })); }} className="flex flex-col gap-3">
         <h3 className="border-b border-filet pb-2 text-[16px]">1. Format</h3>
@@ -36,7 +36,7 @@ export function ReferentielProduits({ formats, parfums, produits }: { formats: F
       <form onSubmit={(e) => { e.preventDefault(); executer(() => creerParfum(parfum), () => setParfum({ nom: "", prixLiquideL: "" })); }} className="flex flex-col gap-3">
         <h3 className="border-b border-filet pb-2 text-[16px]">2. Parfum</h3>
         <label className="etiquette">Nom<input className="champ mt-1 block w-full" required maxLength={100} value={parfum.nom} onChange={(e) => setParfum({ ...parfum, nom: e.target.value })} /></label>
-        <label className="etiquette">Prix liquide HT / L<input className="champ mt-1 block w-full" required inputMode="decimal" value={parfum.prixLiquideL} onChange={(e) => setParfum({ ...parfum, prixLiquideL: e.target.value })} placeholder="0,00" /></label>
+        <label className="etiquette">Prix liquide HT / L (facultatif)<input className="champ mt-1 block w-full" inputMode="decimal" value={parfum.prixLiquideL} onChange={(e) => setParfum({ ...parfum, prixLiquideL: e.target.value })} placeholder="À renseigner plus tard" /></label>
         <button disabled={enCours} className="bouton-plein self-start">Créer le parfum</button>
       </form>
       <form onSubmit={(e) => { e.preventDefault(); executer(() => creerProduit(produit), () => setProduit({ parfumId: "", formatId: "", sku: "", skuShopify: "" })); }} className="flex flex-col gap-3">

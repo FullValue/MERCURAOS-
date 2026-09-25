@@ -57,14 +57,14 @@ function SectionFormat({
               {l.parfumNom}
             </Link>
             <span className="num text-[15px]">
-              <Euro valeur={l.decomposition.matiereEtCond} />
+              {l.prixLiquideRenseigne ? <Euro valeur={l.decomposition.matiereEtCond} /> : <span className="etiquette">à chiffrer</span>}
             </span>
             <span className="num text-[15px]">
-              <Euro valeur={l.decomposition.faconnage} />
+              {l.prixLiquideRenseigne ? <Euro valeur={l.decomposition.faconnage} /> : "—"}
             </span>
             <span className="num text-[15px]">
-              <Euro valeur={l.decomposition.complet} />
-              {l.decomposition.livraison.gt(0) && (
+              {l.prixLiquideRenseigne ? <Euro valeur={l.decomposition.complet} /> : "—"}
+              {l.prixLiquideRenseigne && l.decomposition.livraison.gt(0) && (
                 <span className="etiquette block">
                   dont <Definition terme="fraisLivraison" discret>livraison</Definition>{" "}
                   {euro(l.decomposition.livraison)}
@@ -72,7 +72,7 @@ function SectionFormat({
               )}
             </span>
           </div>
-              {l.prixReference && (
+              {l.prixLiquideRenseigne && l.prixReference && (
                 <div className="mt-2">
                   <FiletDeCharge
                     coutComplet={l.decomposition.complet}
@@ -265,6 +265,14 @@ export default async function PageCatalogue({
           <p className="text-[15px] text-lecture">Aucune référence Mercura pour le moment. Ajoutez d&apos;abord vos formats, parfums et SKU, puis saisissez leurs coûts.</p>
           <Link href="/parametres" className="bouton-plein mt-5 inline-flex items-center">Ouvrir le registre des coûts</Link>
         </div>
+      )}
+
+      {lignes.some((l) => !l.prixLiquideRenseigne) && (
+        <p className="mt-8 border-l-2 border-marque pl-4 text-[14px] text-lecture">
+          Ces références sont prêtes à être chiffrées. Renseignez le prix du liquide,
+          puis les composants et le façonnage propres à chaque format dans le{" "}
+          <Link href="/parametres" className="lien-discret">Registre des coûts</Link>.
+        </p>
       )}
 
       {periodeActive && (
