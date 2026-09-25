@@ -1,0 +1,394 @@
+@import "tailwindcss";
+
+:root {
+  --marque: #a71930;
+  --marque-fonce: #7e1023;
+  --encre: #161616;
+  --papier: #ffffff;
+  --fond: #ffffff;
+  --filet: #e7e3e1;
+  --lecture: #66635f;
+  --alerte: #8b1a1a;
+}
+
+@theme inline {
+  --color-encre: var(--encre);
+  --color-papier: var(--papier);
+  --color-fond: var(--fond);
+  --color-filet: var(--filet);
+  --color-lecture: var(--lecture);
+  --color-alerte: var(--alerte);
+  --color-marque: var(--marque);
+  --color-marque-fonce: var(--marque-fonce);
+
+  --font-sans: var(--font-geist-sans), "Inter", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-titre: var(--font-cormorant), "Cormorant Garamond", serif;
+
+  --radius-fin: 2px;
+}
+
+/* Casse de phrase, pas de mode sombre. */
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--fond);
+  color: var(--encre);
+  font-family: var(--font-sans);
+  font-weight: 400;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Titrage — Cormorant Garamond 300, jamais gras, jamais majuscules (§3.3). */
+.font-titre {
+  font-family: var(--font-titre);
+  font-weight: 300;
+}
+
+/* Chiffres alignés en colonne (non négociable, §3.3). */
+.tabulaire {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Libellés de colonne et unités — Geist Mono 11px (§3.3). */
+.etiquette {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--lecture);
+  text-transform: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Composants de base (§3.4)
+--------------------------------------------------------------------------- */
+.champ {
+  height: 36px;
+  padding: 0 10px;
+  background: var(--papier);
+  border: 1px solid var(--filet);
+  border-radius: var(--radius-fin);
+  color: var(--encre);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  transition:
+    border-color 120ms ease,
+    border-width 120ms ease;
+}
+.champ:focus {
+  outline: none;
+  border-color: var(--encre);
+  border-width: 1.5px;
+}
+
+/* Jauge de prix (simulateur) — curseur natif teinté encre, piste en filet. */
+.jauge {
+  display: block;
+  width: 100%;
+  height: 16px;
+  accent-color: var(--encre);
+  cursor: pointer;
+}
+.jauge:focus-visible {
+  outline: 1.5px solid var(--encre);
+  outline-offset: 4px;
+}
+
+.bouton-plein {
+  height: 36px;
+  padding: 0 16px;
+  background: var(--encre);
+  color: var(--papier);
+  border: none;
+  border-radius: var(--radius-fin);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+.bouton-plein:hover {
+  opacity: 0.88;
+}
+.bouton-plein:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.navigation-rouge {
+  background: var(--marque);
+  color: var(--papier);
+}
+.navigation-rouge a,
+.navigation-rouge button,
+.navigation-rouge .etiquette {
+  color: var(--papier);
+}
+.navigation-rouge a:focus-visible,
+.navigation-rouge button:focus-visible {
+  outline: 2px solid var(--papier);
+  outline-offset: 2px;
+}
+.navigation-rouge .lien-navigation {
+  border-left: 3px solid transparent;
+  color: #fff1f2;
+}
+.navigation-rouge .lien-navigation:hover,
+.navigation-rouge .lien-navigation[aria-current="page"] {
+  background: var(--marque-fonce);
+  border-left-color: var(--papier);
+  color: var(--papier);
+}
+
+/* ---------------------------------------------------------------------------
+   Definition — définition au survol / focus (sans couleur)
+--------------------------------------------------------------------------- */
+.definition {
+  position: relative;
+  display: inline;
+}
+.definition-declencheur {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: help;
+  border-bottom: 1px dotted var(--lecture);
+  text-underline-offset: 2px;
+}
+.definition-declencheur--discret {
+  border-bottom-color: transparent;
+}
+.definition-declencheur:hover,
+.definition-declencheur:focus-visible {
+  border-bottom-color: var(--encre);
+}
+.definition-panneau {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: max-content;
+  max-width: 260px;
+  padding: 10px 12px;
+  background: var(--papier);
+  border: 1px solid var(--filet);
+  border-radius: var(--radius-fin);
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+}
+.definition-texte {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--encre);
+  font-variant-numeric: normal;
+}
+.definition:hover .definition-panneau,
+.definition:focus-within .definition-panneau {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Focus clavier visible partout (§3.6). */
+:focus-visible {
+  outline: 1.5px solid var(--encre);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   Tableaux de données (§3.4) — filet sous l'en-tête et sous chaque ligne,
+   rien sur les côtés ; total séparé par un filet double ; num. à droite.
+--------------------------------------------------------------------------- */
+.tableau {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.tableau thead th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  font-weight: 400;
+  color: var(--lecture);
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--filet);
+  white-space: nowrap;
+}
+.tableau tbody td {
+  font-size: 15px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--filet);
+  color: var(--encre);
+}
+.tableau .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tableau tr.total td {
+  border-top: 2px solid var(--encre);
+  border-bottom: none;
+  font-weight: 500;
+}
+
+/* Marge sous le seuil : seul emploi de --alerte (§3.2). */
+.sous-seuil {
+  color: var(--alerte);
+}
+
+/* Lien discret (« historique »). */
+.lien-discret {
+  font-size: 11px;
+  color: var(--lecture);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-sans);
+}
+.lien-discret:hover {
+  color: var(--encre);
+}
+
+/* Pastille d'initiales client (§8.4). */
+.initiales {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  background: var(--fond);
+  border: 1px solid var(--filet);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--lecture);
+}
+
+/* Valeur éditable en ligne (§8.1) — au clic/focus, un filet apparaît. */
+.valeur-editable {
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--encre);
+  width: 96px;
+  padding: 2px 0;
+  transition: border-color 120ms ease;
+}
+.valeur-editable:hover {
+  border-bottom-color: var(--filet);
+}
+
+/* Ligne « Coûts de façonnage » : fond encre, écriture papier (Registre). */
+.ligne-faconnage td {
+  background: var(--encre);
+  color: var(--papier);
+}
+.ligne-faconnage .valeur-editable,
+.ligne-faconnage .definition-declencheur {
+  color: var(--papier);
+}
+.ligne-faconnage .valeur-editable:hover,
+.ligne-faconnage .valeur-editable:focus {
+  border-bottom-color: var(--papier);
+}
+.ligne-faconnage .lien-discret,
+.ligne-faconnage .etiquette {
+  color: var(--papier);
+  opacity: 0.75;
+}
+.ligne-faconnage select.champ {
+  background: var(--encre);
+  color: var(--papier);
+  border-color: var(--papier);
+}
+.valeur-editable:focus {
+  outline: none;
+  border-bottom-color: var(--encre);
+}
+
+/* Bande d'impact fixe en bas de l'écran Paramètres (§8.1). */
+.bande-impact {
+  position: fixed;
+  bottom: 0;
+  left: 220px;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 32px;
+  padding: 12px 48px;
+  background: var(--papier);
+  border-top: 1px solid var(--filet);
+}
+
+/* ---------------------------------------------------------------------------
+   Mobile (< 1024 px) : navigation en barre haute, tableaux défilants.
+--------------------------------------------------------------------------- */
+@media (max-width: 1023px) {
+  /* Aucun débordement horizontal au niveau de la page : tout défilement
+     latéral se fait DANS les tableaux et les conteneurs .defile-x. */
+  html,
+  body {
+    overflow-x: clip;
+  }
+  /* Les champs ne dépassent jamais la largeur de l'écran. */
+  .champ,
+  .valeur-editable {
+    max-width: 100%;
+  }
+  .bande-impact {
+    left: 0;
+    gap: 16px;
+    padding: 10px 20px;
+  }
+  /* Les tableaux gardent leurs colonnes et défilent horizontalement. */
+  .tableau {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tableau thead,
+  .tableau tbody,
+  .tableau tr {
+    width: max-content;
+    min-width: 100%;
+  }
+  /* Défilement horizontal générique (grilles du catalogue). */
+  .defile-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .defile-x > * {
+    min-width: 560px;
+  }
+}
+
+/* Respect de prefers-reduced-motion (§3.6). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

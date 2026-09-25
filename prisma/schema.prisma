@@ -1,0 +1,321 @@
+// Schéma Prisma — Mercura Parfum (gestion des coûts et de la rentabilité)
+// Règle d'historisation : tout modèle portant `dateEffet` est immuable.
+// On n'écrase jamais une ligne, on en insère une nouvelle avec une date d'effet
+// postérieure. La résolution passe toujours par `valeurAuJour` (lib/calcul).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Utilisateur {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  isAdmin   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// ---------- Référentiel produit ----------
+
+model Parfum {
+  id           String        @id @default(uuid())
+  nom          String        @unique
+  prixLiquideL Decimal       @db.Decimal(10, 4) // € HT par litre (valeur de repli, source : PrixLiquide)
+  actif        Boolean       @default(true)
+  produits     Produit[]
+  prixLiquides PrixLiquide[]
+}
+
+// Prix du liquide historisé (immuable, résolution par valeurAuJour).
+model PrixLiquide {
+  id              String   @id @default(uuid())
+  parfumId        String
+  prixLitreHT     Decimal  @db.Decimal(10, 4)
+  // Litres commandés au fournisseur sur cette période (informatif).
+  litresCommandes Decimal? @db.Decimal(10, 3)
+  // Le montant saisi inclut la TVA (20 %) : le moteur le ramène en HT.
+  tvaIncluse      Boolean  @default(false)
+  dateEffet       DateTime
+  parfum          Parfum   @relation(fields: [parfumId], references: [id], onDelete: Cascade)
+
+  @@unique([parfumId, dateEffet])
+}
+
+// Coût variable lié à une commande fournisseur (douane, transitaire, taxes…).
+// Historisé comme le reste : porté par la période via dateEffet, résolu par
+// valeurAuJour (par libellé), réparti sur le nombre de pièces livrées.
+model CoutVariable {
+  id         String   @id @default(uuid())
+  libelle    String
+  montant    Decimal  @db.Decimal(10, 2)
+  tvaIncluse Boolean  @default(false)
+  dateEffet  DateTime
+
+  @@unique([libelle, dateEffet])
+}
+
+// Période de coûts = commande fournisseur nommée. Les valeurs historisées
+// (Composant, Faconnage, Parametre, PrixLiquide) saisies « dans » une période
+// portent sa dateEffet ; la résolution reste valeurAuJour.
+model PeriodeCouts {
+  id        String   @id @default(uuid())
+  libelle   String
+  dateEffet DateTime @unique
+  createdAt DateTime @default(now())
+}
+
+model Format {
+  id         String      @id @default(uuid())
+  libelle    String      @unique // "50 ml", "10 ml"
+  volumeL    Decimal     @db.Decimal(10, 5) // 0.05000, 0.01000
+  composants Composant[]
+  faconnages Faconnage[]
+  produits   Produit[]
+}
+
+// Composition du paquet affiché dans le catalogue. Les références de formats
+// et de composants sont vérifiées à l'enregistrement ; les coûts restent
+// calculés à la date de la période sélectionnée.
+model CompositionPaquet {
+  id       String   @id
+  elements Json
+  updatedAt DateTime @updatedAt
+}
+
+model Produit {
+  id         String          @id @default(uuid())
+  parfumId   String
+  formatId   String
+  sku        String          @unique
+  skuShopify String?
+  actif      Boolean         @default(true)
+  parfum     Parfum          @relation(fields: [parfumId], references: [id])
+  format     Format          @relation(fields: [formatId], references: [id])
+  lignes     LigneCommande[]
+  prix       GrillePrix[]
+  aMapper    SkuAMapper[]
+
+  @@unique([parfumId, formatId])
+}
+
+// ---------- Coûts ----------
+
+model Composant {
+  id           String   @id @default(uuid())
+  libelle      String // "Flacon + boîte", "Étiquette", "Blistage"
+  formatId     String
+  coutUnitHT   Decimal  @db.Decimal(10, 4)
+  optionnel    Boolean  @default(false) // le sac est optionnel
+  // Quantité commandée au fournisseur sur cette période (informatif).
+  qteCommandee Int?
+  // Le montant saisi inclut la TVA (20 %) : le moteur le ramène en HT.
+  tvaIncluse   Boolean  @default(false)
+  // Ligne « Coûts de façonnage » du format : mise en avant (fond noir) dans le
+  // Registre des coûts, avec une description libre modifiable.
+  faconnage    Boolean  @default(false)
+  description  String?
+  dateEffet    DateTime
+  format       Format   @relation(fields: [formatId], references: [id])
+}
+
+model Faconnage {
+  id            String   @id @default(uuid())
+  formatId      String
+  coutFixeSerie Decimal  @db.Decimal(10, 2) // coût de mise en série
+  coutVarUnitHT Decimal  @db.Decimal(10, 4) // coût par flacon au-delà du fixe
+  qteLotRef     Int // quantité d'amortissement de référence
+  dateEffet     DateTime
+  format        Format   @relation(fields: [formatId], references: [id])
+}
+
+model Parametre {
+  id        String   @id @default(uuid())
+  cle       String // "taux_perte"
+  valeur    Decimal  @db.Decimal(10, 5)
+  dateEffet DateTime
+
+  @@unique([cle, dateEffet])
+}
+
+// ---------- Clients ----------
+
+enum RoleClient {
+  DISTRIBUTEUR
+  REVENDEUR
+  CORNER
+  D2C
+  PROSPECT
+}
+
+model Client {
+  id        String       @id @default(uuid())
+  nom       String       @unique
+  contact   String?
+  email     String?
+  ville     String?
+  notes     String?
+  actif     Boolean      @default(true)
+  roles     ClientRole[]
+  grille    GrillePrix[]
+  commandes Commande[]
+}
+
+model ClientRole {
+  id       String     @id @default(uuid())
+  clientId String
+  role     RoleClient
+  client   Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, role])
+}
+
+// Grille tarifaire de référence par rôle (document commercial, saisie libre) :
+// tranches de quantité et prix unitaire HT, indépendante des grilles clients.
+model TrancheTarifaire {
+  id         String     @id @default(uuid())
+  role       RoleClient
+  libelle    String // référence libre : "50 ml", "Coffret découverte"…
+  qteMin     Int
+  qteMax     Int? // null = « et au-delà »
+  prixUnitHT Decimal    @db.Decimal(10, 2)
+  notes      String?
+  createdAt  DateTime   @default(now())
+}
+
+model GrillePrix {
+  id            String   @id @default(uuid())
+  clientId      String
+  produitId     String
+  prixCessionHT Decimal  @db.Decimal(10, 2)
+  dateEffet     DateTime
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  produit       Produit  @relation(fields: [produitId], references: [id])
+
+  @@unique([clientId, produitId, dateEffet])
+}
+
+// ---------- Commandes ----------
+
+enum SourceCommande {
+  MANUEL
+  SHOPIFY
+}
+
+enum StatutCommande {
+  BROUILLON
+  CONFIRMEE
+  LIVREE
+  ANNULEE
+}
+
+model Commande {
+  id         String          @id @default(uuid())
+  reference  String          @unique
+  clientId   String
+  date       DateTime
+  statut     StatutCommande  @default(BROUILLON)
+  source     SourceCommande  @default(MANUEL)
+  idShopify  String?         @unique
+  notes      String?
+  // Date de confirmation = date du gel des coûts (bandeau « coûts figés au … », §8.6).
+  confirmeLe DateTime?
+  // Période de coûts choisie (date d'une commande fournisseur du Registre).
+  // Null = coûts à la date de la commande / de la confirmation.
+  dateCouts  DateTime?
+  client     Client          @relation(fields: [clientId], references: [id])
+  lignes     LigneCommande[]
+  charges    Charge[]
+}
+
+model LigneCommande {
+  id           String   @id @default(uuid())
+  commandeId   String
+  produitId    String
+  qte          Int
+  puHT         Decimal  @db.Decimal(10, 2)
+  offert       Boolean  @default(false) // coût compté, CA nul
+  // Photographie du coût au moment de la commande — ne se recalcule jamais
+  coutUnitFige Decimal  @db.Decimal(10, 4)
+  commande     Commande @relation(fields: [commandeId], references: [id], onDelete: Cascade)
+  produit      Produit  @relation(fields: [produitId], references: [id])
+}
+
+// ---------- Charges ----------
+
+enum RattachementCharge {
+  COMMANDE
+  GLOBALE
+}
+
+enum PeriodiciteCharge {
+  PONCTUELLE
+  MENSUELLE
+  ANNUELLE
+}
+
+model Charge {
+  id           String             @id @default(uuid())
+  libelle      String
+  montantHT    Decimal            @db.Decimal(10, 2)
+  rattachement RattachementCharge
+  periodicite  PeriodiciteCharge  @default(PONCTUELLE)
+  commandeId   String?
+  date         DateTime
+  commande     Commande?          @relation(fields: [commandeId], references: [id], onDelete: Cascade)
+}
+
+// ---------- Import ----------
+
+enum StatutImport {
+  PREVISUALISATION
+  APPLIQUE
+  ANNULE
+}
+
+model Import {
+  id           String       @id @default(uuid())
+  nomFichier   String
+  typeCible    String // "composants" | "grille_prix" | "commandes"
+  mapping      Json
+  statut       StatutImport @default(PREVISUALISATION)
+  lignesOk     Int          @default(0)
+  lignesErreur Int          @default(0)
+  snapshot     Json? // état antérieur, pour annulation
+  createdAt    DateTime     @default(now())
+}
+
+// ---------- Shopify (ajouts hors §4, cf. plan) ----------
+
+// Réglages de la connexion Shopify. Table singleton (une seule ligne).
+model ReglageShopify {
+  id                String   @id @default(uuid())
+  domaine           String? // ex. mercura.myshopify.com
+  jetonChiffre      String? // AES-256-GCM, format base64 iv:tag:ciphertext — jamais réaffiché en clair
+  commissionTauxPct Decimal  @default("1.4") @db.Decimal(6, 4) // règle de commission, défaut 1,4 %
+  commissionFixe    Decimal  @default("0.25") @db.Decimal(10, 4) // + 0,25 € par commande
+  historiqueComplet Boolean  @default(false) // scope read_all_orders accordé
+  updatedAt         DateTime @updatedAt
+}
+
+// File « SKU à mapper » : commandes Shopify dont le SKU n'existe pas au catalogue.
+// N'entrent pas dans les agrégats tant qu'elles ne sont pas rapprochées.
+model SkuAMapper {
+  id         String   @id @default(uuid())
+  idShopify  String // identifiant de la commande Shopify d'origine
+  skuShopify String
+  libelle    String?
+  qte        Int
+  puTTC      Decimal  @db.Decimal(10, 2)
+  payload    Json // ligne Shopify brute, pour rapprochement ultérieur
+  resolu     Boolean  @default(false)
+  produitId  String?
+  produit    Produit? @relation(fields: [produitId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@index([resolu])
+}
