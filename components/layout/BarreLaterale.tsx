@@ -37,22 +37,20 @@ function Liens({ chemin }: { chemin: string }) {
   );
 }
 
-function Deconnexion({ email }: { email: string }) {
+function Deconnexion() {
   return (
     <div className="border-t border-white/40 pt-4">
-      <p className="etiquette truncate" title={email}>
-        {email}
-      </p>
+      <p className="etiquette">Espace privé</p>
       <form action="/deconnexion" method="post">
         <button type="submit" className="lien-discret mt-2 inline-block">
-          se déconnecter
+          verrouiller l’espace
         </button>
       </form>
     </div>
   );
 }
 
-export function BarreLaterale({ email }: { email: string }) {
+export function BarreLaterale() {
   const chemin = usePathname();
   const [ouvert, setOuvert] = useState(false);
 
@@ -76,7 +74,7 @@ export function BarreLaterale({ email }: { email: string }) {
             <Liens chemin={chemin} />
           </div>
         </div>
-        <Deconnexion email={email} />
+        <Deconnexion />
       </nav>
 
       {/* Barre haute — mobile */}
@@ -103,7 +101,7 @@ export function BarreLaterale({ email }: { email: string }) {
           className="navigation-rouge fixed inset-x-0 top-[53px] bottom-0 z-40 flex flex-col justify-between overflow-y-auto px-5 py-6 lg:hidden"
         >
           <Liens chemin={chemin} />
-          <Deconnexion email={email} />
+          <Deconnexion />
         </nav>
       )}
     </>

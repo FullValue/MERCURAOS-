@@ -1,6 +1,6 @@
 # Fichiers livrés — Mercura Parfum OS
 
-118 fichiers applicatifs et de configuration. Le fichier local `.env.local` contient des secrets et n’est pas répertorié.
+121 fichiers applicatifs et de configuration. Le fichier local `.env.local` contient des secrets et n’est pas répertorié.
 
 Tous les chemins ci-dessous ont été créés dans ce nouveau dossier Mercura.
 
@@ -101,6 +101,7 @@ Tous les chemins ci-dessous ont été créés dans ce nouveau dossier Mercura.
 - `lib/glossaire.ts`
 - `lib/import/definitions.ts`
 - `lib/paquet.ts`
+- `lib/pin.ts`
 - `lib/shopify/api.ts`
 - `lib/shopify/ingestion.ts`
 - `lib/supabase/client.ts`
@@ -115,9 +116,11 @@ Tous les chemins ci-dessous ont été créés dans ce nouveau dossier Mercura.
 - `package.json`
 - `postcss.config.mjs`
 - `prisma/migrations/20260925000000_init_mercura/migration.sql`
+- `prisma/migrations/20260925010000_pin_access/migration.sql`
 - `prisma/migrations/migration_lock.toml`
 - `prisma/schema.prisma`
 - `prisma/seed.ts`
+- `public/mercura-monogramme.png`
 - `scripts/test-integration.mjs`
 - `tsconfig.json`
 - `vercel.json`

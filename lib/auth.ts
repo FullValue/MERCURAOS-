@@ -13,7 +13,8 @@ export const utilisateurCourant = cache(async function utilisateurCourant() {
   if (error) return null;
   const email = user?.email;
 
-  if (!email) return null;
+  const comptePin = process.env.PIN_COMPTE_EMAIL?.trim().toLowerCase();
+  if (!email || !comptePin || email.toLowerCase() !== comptePin) return null;
 
   // Synchronise l'Utilisateur applicatif au premier login (isAdmin défaut false).
   // Lecture d'abord : une écriture par page vue coûtait un aller-retour de plus.

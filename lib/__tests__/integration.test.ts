@@ -13,6 +13,7 @@ import { chargerSynthese } from "../donnees/synthese";
 import { chargerDonneesEditeur } from "../donnees/commandes";
 import { decompositionCout } from "../calcul";
 import { ingererCommandeShopify, type CommandeShopify } from "../shopify/ingestion";
+import { effacerTentativesPin, reserverTentativePin } from "../pin";
 
 const actif = process.env.MERCURA_INTEGRATION === "1" && new URL(process.env.DATABASE_URL || "postgres://localhost").searchParams.get("schema")?.startsWith("mercura_test_");
 describe.skipIf(!actif)("Parcours métier sur PostgreSQL isolé", () => {
@@ -66,6 +67,16 @@ describe.skipIf(!actif)("Parcours métier sur PostgreSQL isolé", () => {
     expect((await modifierProduit({ id: produit.id, sku: "ESSAI-30-B", skuShopify: "SHOP-30", actif: false })).ok).toBe(true);
     expect((await prisma.produit.findUniqueOrThrow({ where: { id: produit.id } })).actif).toBe(false);
     expect((await creerProduit({ parfumId: parfum.id, formatId: format.id, sku: "AUTRE-30" })).ok).toBe(false);
+  });
+  it("limite les essais de code PIN et réinitialise une origine après succès", async () => {
+    const origine = `integration-${Date.now()}`;
+    const secret = "secret-de-test-pour-les-essais-pin-mercura";
+    for (let tentative = 0; tentative < 5; tentative++) {
+      expect(await reserverTentativePin(origine, secret)).toBe(true);
+    }
+    expect(await reserverTentativePin(origine, secret)).toBe(false);
+    await effacerTentativesPin(origine, secret);
+    expect(await reserverTentativePin(origine, secret)).toBe(true);
   });
   afterAll(async () => { await prisma.$disconnect(); });
   it("crée, modifie, confirme, livre, rouvre, annule et supprime avec synthèse cohérente", async () => {

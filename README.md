@@ -15,7 +15,7 @@ npm run db:seed
 npm run dev
 ```
 
-Application : http://localhost:3000 ; connexion : http://localhost:3000/connexion. Sans base et Auth configurées, les vérifications de code fonctionnent, mais les pages privées ne peuvent pas charger les données.
+Application : http://localhost:3000 ; écran de déverrouillage : http://localhost:3000/connexion. Sans base et Auth configurées, les vérifications de code fonctionnent, mais les pages privées ne peuvent pas charger les données.
 
 ## Configuration Supabase
 
@@ -27,11 +27,13 @@ Toutes les variables de `.env.example` concernent le **même** projet Mercura. N
 | `DIRECT_URL` | Connexion directe PostgreSQL, port 5432, pour `prisma migrate deploy`. |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL HTTPS du projet Mercura. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clé **publique** publishable ou anon, utilisée par Supabase Auth. |
+| `PIN_COMPTE_EMAIL` | Adresse du compte Supabase Auth réservé au code PIN ; elle reste côté serveur. |
+| `PIN_SUFFIXE_SECRET` | Secret aléatoire d'au moins 32 caractères ajouté côté serveur au PIN avant vérification par Supabase Auth. Identique dans tous les environnements. |
 | `CHIFFREMENT_CLE` | 32 octets aléatoires en base64 (`openssl rand -base64 32`) pour chiffrer le jeton Shopify. Garder la même clé après déploiement. |
 | `SHOPIFY_WEBHOOK_SECRET` | Secret HMAC de l'application Shopify Mercura. |
 | `NEXT_PUBLIC_SITE_URL` | URL publique exacte du site, sans slash final. |
 
-`SUPABASE_SERVICE_ROLE_KEY` n'est pas nécessaire : la synchronisation du premier utilisateur passe par la session Auth et Prisma côté serveur. Les clés privées et le jeton Shopify ne sont jamais envoyés au navigateur. `.env` et `.env.local` sont ignorés par Git. Prisma CLI charge `.env` ; Next.js charge aussi `.env.local` si présent.
+`SUPABASE_SERVICE_ROLE_KEY` n'est pas nécessaire au fonctionnement de l'application : la synchronisation du compte PIN passe par la session Auth et Prisma côté serveur. Les clés privées et le jeton Shopify ne sont jamais envoyés au navigateur. `.env` et `.env.local` sont ignorés par Git. Prisma CLI charge `.env` ; Next.js charge aussi `.env.local` si présent.
 
 Le dossier `prisma/migrations/20260925000000_init_mercura` est une **migration initiale complète** pour une base neuve. Les URL de connexion utilisent `schema=mercura` pour isoler les tables métier du schéma `public` exposé par l'API Supabase. Sur un projet neuf, créer au préalable le rôle PostgreSQL applicatif et le schéma `mercura` avec les droits `USAGE, CREATE` pour ce rôle, puis `npm run db:deploy` crée toutes les tables et `_prisma_migrations`. `npm run db:seed` crée seulement les paramètres génériques (perte 0, TVA récupérable, livraison 0) et le client technique « Boutique en ligne » avec le rôle D2C. Le seed est idempotent ; il ne crée aucun parfum, format, coût ou tarif commercial.
 
@@ -46,7 +48,7 @@ GRANT CONNECT, CREATE ON DATABASE postgres TO mercura_app;
 
 Utiliser ce mot de passe dans les deux URL de `.env`. Le droit `CREATE` sur la base permet aussi le schéma temporaire des tests d'intégration. La base Mercura configurée dans cet espace de travail a déjà reçu ce rôle, ce schéma et la migration ; les commandes SQL ci-dessus documentent une installation sur un autre projet neuf.
 
-Pour le premier accès, créer un utilisateur e-mail/mot de passe dans **Supabase Auth → Users**, puis se connecter sur `/connexion`. La ligne `Utilisateur` est créée au premier accès. Configurer l'URL du site et les URL de redirection dans Supabase Auth ; le callback `/auth/callback` reste disponible pour les liens magiques.
+Pour le premier accès, créer dans **Supabase Auth → Users** un compte avec l'adresse `PIN_COMPTE_EMAIL`, confirmer son e-mail, et donner comme mot de passe la concaténation exacte du PIN choisi puis de `PIN_SUFFIXE_SECRET`, sans espace. Le visiteur ne saisit **que le PIN** sur `/connexion` ; le suffixe et l'adresse ne sont jamais envoyés au navigateur. Supabase Auth conserve la session dans des cookies serveur. Seul ce compte est accepté par le middleware et les Server Actions. Les essais sont limités dans PostgreSQL à cinq par origine et trente au total par fenêtre de quinze minutes. La ligne `Utilisateur` est créée au premier accès. Pour changer le PIN, modifier le mot de passe de ce compte Auth avec la nouvelle concaténation.
 
 ## Saisie des vraies données Mercura
 
@@ -72,4 +74,4 @@ npm run test:integration # nécessite DIRECT_URL valide ; schéma PostgreSQL tem
 
 Les tests d'intégration créent puis suppriment un schéma `mercura_test_*` isolé. Ils ne doivent être lancés que sur le projet Mercura. Les vérifications de code et les tests unitaires ne nécessitent pas de connexion externe.
 
-Pour Vercel, créer un **nouveau** projet associé à ce dossier, configurer les mêmes variables dans les environnements concernés, lancer les migrations avec `DIRECT_URL` avant le premier trafic, puis déployer. Configurer `NEXT_PUBLIC_SITE_URL` avec l'URL Vercel finale et l'ajouter aux redirections Supabase Auth. Ne pas relier ce dossier au projet Vercel d'une autre marque.
+Pour Vercel, créer un **nouveau** projet associé à ce dépôt, configurer les mêmes variables, y compris `PIN_COMPTE_EMAIL` et `PIN_SUFFIXE_SECRET`, dans les environnements concernés, lancer les migrations avec `DIRECT_URL` avant le premier trafic, puis déployer. Configurer `NEXT_PUBLIC_SITE_URL` avec l'URL Vercel finale et l'ajouter aux redirections Supabase Auth. Ne pas relier ce dossier au projet Vercel d'une autre marque.

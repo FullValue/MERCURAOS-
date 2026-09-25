@@ -143,6 +143,136 @@ body {
   color: var(--papier);
 }
 
+/* Accès provisoire par code PIN. Le PNG fourni est affiché en blanc par
+   superposition écran ; son fond blanc devient visuellement transparent. */
+.ecran-pin {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100svh;
+  place-items: center;
+  padding: 36px 24px 52px;
+  background: var(--marque);
+  color: var(--papier);
+}
+.ecran-pin__contenu {
+  width: min(100%, 380px);
+  text-align: center;
+}
+.ecran-pin__logo {
+  position: relative;
+  width: min(338px, 82vw);
+  aspect-ratio: 338 / 312;
+  margin: 0 auto -12px;
+}
+.ecran-pin__logo::before {
+  position: absolute;
+  inset: 12% 5%;
+  content: "";
+  background: radial-gradient(circle, rgb(255 255 255 / 22%), transparent 68%);
+  filter: blur(16px);
+}
+.ecran-pin__logo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  mix-blend-mode: screen;
+}
+.ecran-pin__logo-halo {
+  opacity: .8;
+  filter: invert(1) blur(13px);
+  animation: lumiere-pin 4s ease-in-out infinite alternate;
+}
+.ecran-pin__logo-trait {
+  filter: invert(1);
+}
+.ecran-pin__marque {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .26em;
+}
+.ecran-pin__titre {
+  margin-top: 12px;
+  font-family: var(--font-titre);
+  font-size: clamp(36px, 9vw, 46px);
+  font-weight: 300;
+  line-height: 1.04;
+}
+.ecran-pin__formulaire {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 34px;
+}
+.ecran-pin__etiquette {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.ecran-pin__champ {
+  width: 100%;
+  height: 62px;
+  padding: 0 18px;
+  border: 1px solid rgb(255 255 255 / 58%);
+  border-radius: 2px;
+  background: rgb(126 16 35 / 24%);
+  color: var(--papier);
+  font-size: 28px;
+  letter-spacing: .4em;
+  text-align: center;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+.ecran-pin__champ::placeholder {
+  color: rgb(255 255 255 / 44%);
+  letter-spacing: .35em;
+}
+.ecran-pin__champ:focus-visible {
+  outline: 2px solid var(--papier);
+  outline-offset: 3px;
+  border-color: var(--papier);
+  background: rgb(126 16 35 / 36%);
+}
+.ecran-pin__bouton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 52px;
+  margin-top: 6px;
+  border: 1px solid var(--papier);
+  border-radius: 2px;
+  background: var(--papier);
+  color: var(--marque-fonce);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+.ecran-pin__bouton:hover {
+  background: transparent;
+  color: var(--papier);
+}
+.ecran-pin__bouton:focus-visible {
+  outline: 2px solid var(--papier);
+  outline-offset: 3px;
+}
+.ecran-pin__bouton:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+.ecran-pin__erreur {
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--papier);
+}
+@keyframes lumiere-pin {
+  from { opacity: .45; }
+  to { opacity: .95; }
+}
+
 /* ---------------------------------------------------------------------------
    Definition — définition au survol / focus (sans couleur)
 --------------------------------------------------------------------------- */

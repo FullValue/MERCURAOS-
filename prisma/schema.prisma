@@ -20,6 +20,13 @@ model Utilisateur {
   createdAt DateTime @default(now())
 }
 
+// Fenêtre d'essais pour le code PIN. La clé IP est un HMAC, jamais l'adresse brute.
+model TentativePin {
+  cle           String   @id
+  essais        Int
+  fenetreJusqua DateTime
+}
+
 // ---------- Référentiel produit ----------
 
 model Parfum {

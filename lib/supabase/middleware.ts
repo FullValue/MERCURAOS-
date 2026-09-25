@@ -5,7 +5,7 @@ import { supabaseAnonKey, supabaseUrl } from "@/lib/env";
 
 /**
  * Rafraîchit la session Supabase à chaque requête et protège les routes.
- * Les visiteurs non authentifiés sont renvoyés vers /connexion.
+ * Seul le compte Auth lié au code PIN peut ouvrir l'espace.
  */
 export async function actualiserSession(request: NextRequest) {
   const chemin = request.nextUrl.pathname;
@@ -37,7 +37,8 @@ export async function actualiserSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  const comptePin = process.env.PIN_COMPTE_EMAIL?.trim().toLowerCase();
+  if (!comptePin || user?.email?.toLowerCase() !== comptePin) {
     const url = request.nextUrl.clone();
     url.pathname = "/connexion";
     const redirection = NextResponse.redirect(url);

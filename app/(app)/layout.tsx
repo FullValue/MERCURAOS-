@@ -6,11 +6,11 @@ export default async function LayoutApplication({
 }: {
   children: React.ReactNode;
 }) {
-  const utilisateur = await exigerUtilisateur();
+  await exigerUtilisateur();
 
   return (
     <div className="min-h-screen">
-      <BarreLaterale email={utilisateur.email} />
+      <BarreLaterale />
       <div className="lg:pl-[220px]">
         <main className="max-w-[1100px] px-5 py-8 lg:px-12 lg:py-12">{children}</main>
       </div>
