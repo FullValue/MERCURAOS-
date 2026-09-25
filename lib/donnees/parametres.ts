@@ -31,6 +31,8 @@ export interface ComposantCourant {
 }
 
 export interface FaconnageCourant {
+  produitId: string;
+  parfumNom: string;
   formatId: string;
   formatLibelle: string;
   coutFixeSerie: string;
@@ -51,6 +53,9 @@ export interface ParfumBase {
 }
 
 export interface PrixLiquideCourant {
+  produitId: string;
+  formatId: string;
+  formatLibelle: string;
   parfumId: string;
   parfumNom: string;
   prixLitreHT: string;
@@ -94,6 +99,7 @@ export interface EtatParametres {
   coutsVariables: CoutVariableLigne[];
   formats: FormatBase[];
   parfums: ParfumBase[];
+  produits: { id: string; parfumId: string; parfumNom: string; formatId: string; formatLibelle: string }[];
 }
 
 /** Périodes de coûts (commandes fournisseurs), la plus récente en tête. */
@@ -116,13 +122,16 @@ const chargerHistoriques = cache(async () => await Promise.all([
       prisma.parfum.findMany({ where: { actif: true }, orderBy: { nom: "asc" } }),
       prisma.prixLiquide.findMany({ orderBy: { dateEffet: "desc" } }),
       prisma.coutVariable.findMany({ orderBy: { dateEffet: "desc" } }),
+      prisma.produit.findMany({ where: { actif: true }, include: { parfum: true, format: true }, orderBy: [{ format: { volumeL: "desc" } }, { parfum: { nom: "asc" } }] }),
+      prisma.prixLiquideReference.findMany({ orderBy: { dateEffet: "desc" } }),
+      prisma.faconnageReference.findMany({ orderBy: { dateEffet: "desc" } }),
     ]));
 
 /** Charge l'état courant des paramètres à la date, avec l'historique daté. */
 export async function chargerParametres(
   date: Date = new Date(),
 ): Promise<EtatParametres> {
-  const [parametres, composants, faconnages, formats, parfums, prixRows, coutsVarRows] = await chargerHistoriques();
+  const [parametres, composants, faconnages, formats, parfums, prixRows, coutsVarRows, produits, prixReferences, faconnagesReferences] = await chargerHistoriques();
 
   const pertes = parametres.filter((p) => p.cle === CLE_TAUX_PERTE);
   const perteCourante = valeurAuJour(
@@ -148,16 +157,20 @@ export async function chargerParametres(
     date,
   );
 
-  const prixLiquidesCourants: PrixLiquideCourant[] = parfums.map((parfum) => {
-    const rows = prixRows.filter((r) => r.parfumId === parfum.id);
-    const courant = valeurAuJour(rows, date);
+  const prixLiquidesCourants: PrixLiquideCourant[] = produits.map((produit) => {
+    const rows = prixReferences.filter((r) => r.produitId === produit.id);
+    const anciens = prixRows.filter((r) => r.parfumId === produit.parfumId);
+    const courant = valeurAuJour(rows, date) ?? valeurAuJour(anciens, date);
     return {
-      parfumId: parfum.id,
-      parfumNom: parfum.nom,
-      prixLitreHT: courant?.prixLitreHT.toString() ?? parfum.prixLiquideL.toString(),
+      produitId: produit.id,
+      parfumId: produit.parfumId,
+      parfumNom: produit.parfum.nom,
+      formatId: produit.formatId,
+      formatLibelle: produit.format.libelle,
+      prixLitreHT: courant?.prixLitreHT.toString() ?? (produit.parfum.prixLiquideL.gt(0) ? produit.parfum.prixLiquideL.toString() : ""),
       litresCommandes: courant?.litresCommandes?.toString() ?? "",
       tvaIncluse: courant?.tvaIncluse ?? false,
-      historique: rows.map((r) => ({
+      historique: [...rows, ...anciens].map((r) => ({
         valeur: r.prixLitreHT.toString(),
         dateEffet: r.dateEffet.toISOString(),
       })),
@@ -194,24 +207,19 @@ export async function chargerParametres(
       .map((h) => ({ valeur: h.coutUnitHT.toString(), dateEffet: h.dateEffet.toISOString() })),
   }));
 
-  const faconnagesCourants = valeurAuJourParGroupe(
-    faconnages.map((f) => ({
-      formatId: f.formatId,
-      formatLibelle: f.format.libelle,
-      coutFixeSerie: f.coutFixeSerie.toString(),
-      coutVarUnitHT: f.coutVarUnitHT.toString(),
-      qteLotRef: f.qteLotRef,
-      dateEffet: f.dateEffet,
-    })),
-    date,
-    (f) => f.formatId,
-  ).map((f) => ({
-    formatId: f.formatId,
-    formatLibelle: f.formatLibelle,
-    coutFixeSerie: f.coutFixeSerie,
-    coutVarUnitHT: f.coutVarUnitHT,
-    qteLotRef: f.qteLotRef,
-  }));
+  const faconnagesCourants: FaconnageCourant[] = produits.flatMap((produit) => {
+    const courant = valeurAuJour(faconnagesReferences.filter((f) => f.produitId === produit.id), date)
+      ?? valeurAuJour(faconnages.filter((f) => f.formatId === produit.formatId), date);
+    return courant ? [{
+      produitId: produit.id,
+      parfumNom: produit.parfum.nom,
+      formatId: produit.formatId,
+      formatLibelle: produit.format.libelle,
+      coutFixeSerie: courant.coutFixeSerie.toString(),
+      coutVarUnitHT: courant.coutVarUnitHT.toString(),
+      qteLotRef: courant.qteLotRef,
+    }] : [];
+  });
 
   const coutsVariablesCourants = valeurAuJourParGroupe(
     coutsVarRows,
@@ -248,5 +256,6 @@ export async function chargerParametres(
     faconnages: faconnagesCourants,
     formats: formats.map((f) => ({ id: f.id, libelle: f.libelle, volumeL: f.volumeL.toString() })),
     parfums: parfums.map((p) => ({ id: p.id, nom: p.nom, prixLiquideL: p.prixLiquideL.toString() })),
+    produits: produits.map((p) => ({ id: p.id, parfumId: p.parfumId, parfumNom: p.parfum.nom, formatId: p.formatId, formatLibelle: p.format.libelle })),
   };
 }

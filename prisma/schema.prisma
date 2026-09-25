@@ -106,8 +106,36 @@ model Produit {
   lignes     LigneCommande[]
   prix       GrillePrix[]
   aMapper    SkuAMapper[]
+  prixLiquidesReference PrixLiquideReference[]
+  faconnagesReference   FaconnageReference[]
 
   @@unique([parfumId, formatId])
+}
+
+// Coûts propres à une référence parfum × format. Les historiques généraux
+// Parfum/Format restent disponibles pour les références déjà chiffrées.
+model PrixLiquideReference {
+  id              String   @id @default(uuid())
+  produitId       String
+  prixLitreHT     Decimal  @db.Decimal(10, 4)
+  litresCommandes Decimal? @db.Decimal(10, 3)
+  tvaIncluse      Boolean  @default(false)
+  dateEffet       DateTime
+  produit         Produit  @relation(fields: [produitId], references: [id], onDelete: Cascade)
+
+  @@unique([produitId, dateEffet])
+}
+
+model FaconnageReference {
+  id            String   @id @default(uuid())
+  produitId     String
+  coutFixeSerie Decimal  @db.Decimal(10, 2)
+  coutVarUnitHT Decimal  @db.Decimal(10, 4)
+  qteLotRef     Int
+  dateEffet     DateTime
+  produit       Produit  @relation(fields: [produitId], references: [id], onDelete: Cascade)
+
+  @@unique([produitId, dateEffet])
 }
 
 // ---------- Coûts ----------

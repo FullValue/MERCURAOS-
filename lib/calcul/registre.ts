@@ -6,8 +6,10 @@ import { Decimal, dSaisie } from "./decimal";
 export function moyennesRegistre(etat: EtatParametres): Map<string, Decimal> {
   const dateEffet = new Date("2000-01-01T00:00:00Z");
   return new Map(etat.formats.map((format) => {
-    const fac = etat.faconnages.find((f) => f.formatId === format.id);
-    const somme = etat.prixLiquides.reduce((acc, prix) => acc.plus(decompositionCout({
+    const prixFormat = etat.prixLiquides.filter((p) => p.formatId === format.id);
+    const somme = prixFormat.reduce((acc, prix) => {
+      const fac = etat.faconnages.find((f) => f.produitId === prix.produitId);
+      return acc.plus(decompositionCout({
       volumeL: format.volumeL,
       prixLiquideL: "0",
       prixLiquides: [{ prixLitreHT: dSaisie(prix.prixLitreHT), tvaIncluse: prix.tvaIncluse, dateEffet }],
@@ -21,7 +23,8 @@ export function moyennesRegistre(etat: EtatParametres): Map<string, Decimal> {
         { cle: "livraison_nb_pieces", valeur: dSaisie(etat.livraisonNbPieces), dateEffet },
         { cle: "tva_recuperable", valeur: etat.tvaRecuperable ? "1" : "0", dateEffet },
       ],
-    }, dateEffet).complet), new Decimal(0));
-    return [format.id, somme.div(etat.prixLiquides.length || 1)];
+    }, dateEffet).complet);
+    }, new Decimal(0));
+    return [format.id, somme.div(prixFormat.length || 1)];
   }));
 }

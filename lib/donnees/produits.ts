@@ -18,14 +18,18 @@ export interface ProduitEnrichi {
   contexte: ProduitContexte;
 }
 
-/**
- * Charge les 12 produits avec tout le contexte de coût nécessaire au moteur,
- * en convertissant les Decimal Prisma en chaînes (le moteur reste indépendant).
- */
+/** Garde l'historique commun jusqu'à la première saisie propre à la référence. */
+function historiqueParReference<T extends { dateEffet: Date }, U extends { dateEffet: Date }>(commun: T[], propre: U[]): (T | U)[] {
+  if (propre.length === 0) return commun;
+  const premiere = propre.reduce((date, ligne) => ligne.dateEffet < date ? ligne.dateEffet : date, propre[0]!.dateEffet);
+  return [...commun.filter((ligne) => ligne.dateEffet < premiere), ...propre];
+}
+
+/** Charge les produits avec leur historique de coûts, sans Decimal Prisma. */
 export const chargerProduitsEnrichis = cache(async function chargerProduitsEnrichis(
   inclureInactifs = false, db: TransactionMercura = prisma,
 ): Promise<ProduitEnrichi[]> {
-  const [produits, composants, faconnages, parametres, prixLiquides, coutsVariables] =
+  const [produits, composants, faconnages, parametres, prixLiquides, coutsVariables, prixReferences, faconnagesReferences] =
     await Promise.all([
       db.produit.findMany({
         where: inclureInactifs ? {} : { actif: true },
@@ -37,6 +41,8 @@ export const chargerProduitsEnrichis = cache(async function chargerProduitsEnric
       db.parametre.findMany(),
       db.prixLiquide.findMany(),
       db.coutVariable.findMany(),
+      db.prixLiquideReference.findMany(),
+      db.faconnageReference.findMany(),
     ]);
 
   const parametresEngine = parametres.map((p) => ({
@@ -56,8 +62,10 @@ export const chargerProduitsEnrichis = cache(async function chargerProduitsEnric
     const contexte: ProduitContexte = {
       volumeL: produit.format.volumeL.toString(),
       prixLiquideL: produit.parfum.prixLiquideL.toString(),
-      prixLiquides: prixLiquides
-        .filter((x) => x.parfumId === produit.parfumId)
+      prixLiquides: historiqueParReference(
+        prixLiquides.filter((x) => x.parfumId === produit.parfumId),
+        prixReferences.filter((x) => x.produitId === produit.id),
+      )
         .map((x) => ({
           prixLitreHT: x.prixLitreHT.toString(),
           tvaIncluse: x.tvaIncluse,
@@ -75,8 +83,10 @@ export const chargerProduitsEnrichis = cache(async function chargerProduitsEnric
           faconnage: c.faconnage,
           dateEffet: c.dateEffet,
         })),
-      faconnages: faconnages
-        .filter((f) => f.formatId === produit.formatId)
+      faconnages: historiqueParReference(
+        faconnages.filter((f) => f.formatId === produit.formatId),
+        faconnagesReferences.filter((f) => f.produitId === produit.id),
+      )
         .map((f) => ({
           coutFixeSerie: f.coutFixeSerie.toString(),
           coutVarUnitHT: f.coutVarUnitHT.toString(),

@@ -11,6 +11,8 @@ import { enregistrerParametres, creerFormat, creerParfum, creerProduit, modifier
 import { enregistrerCompositionPaquet } from "@/app/(app)/catalogue/actions";
 import { chargerSynthese } from "../donnees/synthese";
 import { chargerDonneesEditeur } from "../donnees/commandes";
+import { chargerProduitsEnrichis } from "../donnees/produits";
+import { chargerParametres } from "../donnees/parametres";
 import { decompositionCout } from "../calcul";
 import { ingererCommandeShopify, type CommandeShopify } from "../shopify/ingestion";
 import { effacerTentativesPin, reserverTentativePin } from "../pin";
@@ -69,6 +71,38 @@ describe.skipIf(!actif)("Parcours métier sur PostgreSQL isolé", () => {
     expect((await modifierProduit({ id: produit.id, sku: "ESSAI-30-B", skuShopify: "SHOP-30", actif: false })).ok).toBe(true);
     expect((await prisma.produit.findUniqueOrThrow({ where: { id: produit.id } })).actif).toBe(false);
     expect((await creerProduit({ parfumId: parfum.id, formatId: format.id, sku: "AUTRE-30" })).ok).toBe(false);
+  });
+  it("sépare le jus et le façonnage des quatre références parfum × format", async () => {
+    const f2 = await prisma.format.create({ data: { libelle: "2 ml coûts test", volumeL: "0.002" } });
+    const parfums = await Promise.all(["Alabama test", "Buffalo test"].map((nom) =>
+      prisma.parfum.create({ data: { nom, prixLiquideL: "0" } })));
+    const produits: { id: string }[] = [];
+    for (const parfum of parfums) {
+      for (const format of [{ id: formatId, libelle: "50 ml" }, { id: f2.id, libelle: "2 ml" }]) {
+        produits.push(await prisma.produit.create({ data: { parfumId: parfum.id, formatId: format.id, sku: `${parfum.nom}-${format.libelle}` } }));
+      }
+    }
+    const periode = await prisma.periodeCouts.create({ data: { libelle: "Coûts références test", dateEffet: new Date("2026-08-01") } });
+    try {
+      expect((await enregistrerParametres({
+        periodeId: periode.id,
+        prixLiquides: produits.map((p, i) => ({ produitId: p.id, prixLitreHT: String((i + 1) * 100) })),
+        faconnages: produits.map((p, i) => ({ produitId: p.id, coutFixeSerie: "0", coutVarUnitHT: String(i + 1), qteLotRef: 1 })),
+      })).ok).toBe(true);
+      expect(await prisma.prixLiquideReference.count({ where: { produitId: { in: produits.map((p) => p.id) } } })).toBe(4);
+      expect(await prisma.faconnageReference.count({ where: { produitId: { in: produits.map((p) => p.id) } } })).toBe(4);
+      const etat = await chargerParametres(new Date("2026-08-02"));
+      expect(etat.prixLiquides.filter((p) => produits.some((x) => x.id === p.produitId)).map((p) => p.prixLitreHT)).toEqual(["100", "300", "200", "400"]);
+      const enrichis = await chargerProduitsEnrichis();
+      const calculs = produits.map((p) => decompositionCout(enrichis.find((x) => x.produitId === p.id)!.contexte, new Date("2026-08-02")));
+      expect(calculs.map((c) => c.liquide.toString())).toEqual(["5", "0.4", "15", "0.8"]);
+      expect(calculs.map((c) => c.faconnage.toString())).toEqual(["1", "2", "3", "4"]);
+    } finally {
+      await prisma.produit.deleteMany({ where: { id: { in: produits.map((p) => p.id) } } });
+      await prisma.parfum.deleteMany({ where: { id: { in: parfums.map((p) => p.id) } } });
+      await prisma.format.delete({ where: { id: f2.id } });
+      await prisma.periodeCouts.delete({ where: { id: periode.id } });
+    }
   });
   it("limite les essais de code PIN et réinitialise une origine après succès", async () => {
     const origine = `integration-${Date.now()}`;

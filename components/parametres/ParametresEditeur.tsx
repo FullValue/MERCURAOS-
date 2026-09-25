@@ -38,6 +38,8 @@ function enEntier(texte: string): number | null {
   return Number.isInteger(n) && n >= 0 ? n : Number.NaN;
 }
 interface FacEtat {
+  produitId: string;
+  parfumNom: string;
   formatId: string;
   formatLibelle: string;
   coutFixeSerie: string;
@@ -63,6 +65,9 @@ function Historique({ liste }: { liste: ValeurHistorisee[] }) {
 }
 
 interface PrixEtat {
+  produitId: string;
+  formatId: string;
+  formatLibelle: string;
   parfumId: string;
   parfumNom: string;
   prixLitreHT: string;
@@ -127,10 +132,11 @@ export function ParametresEditeur({
   const [sacAjoutOuvert, setSacAjoutOuvert] = useState(false);
   const sacFormatId = etat.formats[0]?.id ?? "";
   const [facs, setFacs] = useState<FacEtat[]>(
-    etat.formats.map((format) => {
-      const courant = etat.faconnages.find((f) => f.formatId === format.id);
+    etat.produits.map((produit) => {
+      const courant = etat.faconnages.find((f) => f.produitId === produit.id);
       return courant ? { ...courant, qteLotRef: String(courant.qteLotRef) } : {
-        formatId: format.id, formatLibelle: format.libelle, coutFixeSerie: "0", coutVarUnitHT: "0", qteLotRef: "1",
+        produitId: produit.id, parfumNom: produit.parfumNom, formatId: produit.formatId, formatLibelle: produit.formatLibelle,
+        coutFixeSerie: "", coutVarUnitHT: "", qteLotRef: "",
       };
     }),
   );
@@ -150,13 +156,13 @@ export function ParametresEditeur({
       });
     });
     setPrixLiq((prev) => {
-      const locaux = new Map(prev.map((x) => [x.parfumId, x]));
-      return etat.prixLiquides.map((x) => locaux.get(x.parfumId) ?? x);
+      const locaux = new Map(prev.map((x) => [x.produitId, x]));
+      return etat.prixLiquides.map((x) => locaux.get(x.produitId) ?? x);
     });
-    setFacs((prev) => etat.formats.map((format) => prev.find((f) => f.formatId === format.id)
-      ?? (() => { const f = etat.faconnages.find((x) => x.formatId === format.id); return f ? { ...f, qteLotRef: String(f.qteLotRef) } : { formatId: format.id, formatLibelle: format.libelle, coutFixeSerie: "0", coutVarUnitHT: "0", qteLotRef: "1" }; })()));
+    setFacs((prev) => etat.produits.map((produit) => prev.find((f) => f.produitId === produit.id)
+      ?? (() => { const f = etat.faconnages.find((x) => x.produitId === produit.id); return f ? { ...f, qteLotRef: String(f.qteLotRef) } : { produitId: produit.id, parfumNom: produit.parfumNom, formatId: produit.formatId, formatLibelle: produit.formatLibelle, coutFixeSerie: "", coutVarUnitHT: "", qteLotRef: "" }; })()));
      
-  }, [etat.composants, etat.prixLiquides, etat.faconnages, etat.formats]);
+  }, [etat.composants, etat.prixLiquides, etat.faconnages, etat.produits]);
 
   const setPrix = (i: number, valeur: string) =>
     setPrixLiq((prev) => prev.map((x, j) => (j === i ? { ...x, prixLitreHT: valeur } : x)));
@@ -212,7 +218,7 @@ export function ParametresEditeur({
 
   const impacts = useMemo(() => {
     const avant = moyennesRegistre(etat);
-    const apres = moyennesRegistre({ ...etat, tauxPerte: taux, fraisLivraison: livraison, fraisLivraisonTtc: livTtc, livraisonNbPieces: nbPieces, tvaRecuperable: tvaRecup, prixLiquides: prixLiq, composants: comps, coutsVariables, faconnages: facs.map((f) => ({ ...f, qteLotRef: Math.max(1, Number(f.qteLotRef) || 1) })) });
+    const apres = moyennesRegistre({ ...etat, tauxPerte: taux, fraisLivraison: livraison, fraisLivraisonTtc: livTtc, livraisonNbPieces: nbPieces, tvaRecuperable: tvaRecup, prixLiquides: prixLiq, composants: comps, coutsVariables, faconnages: facs.filter((f) => f.coutFixeSerie.trim() !== "" || f.coutVarUnitHT.trim() !== "").map((f) => ({ ...f, coutFixeSerie: f.coutFixeSerie.trim() || "0", coutVarUnitHT: f.coutVarUnitHT.trim() || "0", qteLotRef: Math.max(1, Number(f.qteLotRef) || 1) })) });
     return etat.formats.map((f) => ({ libelle: f.libelle, avant: avant.get(f.id)!, apres: apres.get(f.id)!, change: !avant.get(f.id)!.eq(apres.get(f.id)!) }));
   }, [etat, taux, livraison, livTtc, nbPieces, tvaRecup, prixLiq, comps, facs, coutsVariables]);
 
@@ -237,16 +243,16 @@ export function ParametresEditeur({
     const tvaRecuperable = tvaRecup !== etat.tvaRecuperable ? tvaRecup : undefined;
     const prixLiquidesDiff = prixLiq
       .filter((x) => {
-        const o = etat.prixLiquides.find((y) => y.parfumId === x.parfumId);
+        const o = etat.prixLiquides.find((y) => y.produitId === x.produitId);
         return (
-          o &&
+          o && x.prixLitreHT.trim() !== "" &&
           (o.prixLitreHT !== x.prixLitreHT ||
             o.litresCommandes !== x.litresCommandes ||
             o.tvaIncluse !== x.tvaIncluse)
         );
       })
       .map((x) => ({
-        parfumId: x.parfumId,
+        produitId: x.produitId,
         prixLitreHT: x.prixLitreHT,
         litresCommandes: x.litresCommandes.trim() === "" ? null : x.litresCommandes,
         tvaIncluse: x.tvaIncluse,
@@ -283,19 +289,20 @@ export function ParametresEditeur({
       }));
     const faconnagesDiff = facs
       .filter((f) => {
-        const o = etat.faconnages.find((x) => x.formatId === f.formatId);
+        const o = etat.faconnages.find((x) => x.produitId === f.produitId);
         return (
-          !o ||
+          (!o && (f.coutFixeSerie.trim() !== "" || f.coutVarUnitHT.trim() !== "")) ||
+          (o &&
           (o.coutFixeSerie !== f.coutFixeSerie ||
             o.coutVarUnitHT !== f.coutVarUnitHT ||
-            String(o.qteLotRef) !== f.qteLotRef)
+            String(o.qteLotRef) !== f.qteLotRef))
         );
       })
       .map((f) => ({
-        formatId: f.formatId,
-        coutFixeSerie: f.coutFixeSerie,
-        coutVarUnitHT: f.coutVarUnitHT,
-        qteLotRef: Number(f.qteLotRef),
+        produitId: f.produitId,
+        coutFixeSerie: f.coutFixeSerie.trim() || "0",
+        coutVarUnitHT: f.coutVarUnitHT.trim() || "0",
+        qteLotRef: Number(f.qteLotRef) || 1,
       }));
 
     if (
@@ -365,7 +372,7 @@ export function ParametresEditeur({
         <h2 className="font-titre text-[24px] font-light text-encre">
           <Definition terme="prixLiquide">Prix du liquide par parfum</Definition>
         </h2>
-        <p className="mt-1 text-[13px] text-lecture">€ HT par litre.</p>
+        <p className="mt-1 text-[13px] text-lecture">€ HT par litre. Une saisie distincte pour chaque parfum et chaque format.</p>
         <table className="tableau mt-4 max-w-[620px]">
           <thead>
             <tr>
@@ -380,22 +387,23 @@ export function ParametresEditeur({
           </thead>
           <tbody>
             {prixLiq.map((x, i) => (
-              <tr key={x.parfumId}>
-                <td>{x.parfumNom}</td>
+              <tr key={x.produitId}>
+                <td>{x.parfumNom} · {x.formatLibelle}</td>
                 <td className="num">
                   <input
                     className="valeur-editable"
                     inputMode="decimal"
                     value={x.prixLitreHT}
                     onChange={(e) => setPrix(i, e.target.value)}
-                    aria-label={`prix du liquide ${x.parfumNom}`}
+                    aria-label={`prix du liquide ${x.parfumNom} ${x.formatLibelle}`}
+                    placeholder="—"
                   />
                 </td>
                 <td>
                   <ChoixTaxe
                     ttc={x.tvaIncluse}
                     onChange={(v) => setPrixTva(i, v)}
-                    label={`TVA prix du liquide ${x.parfumNom}`}
+                    label={`TVA prix du liquide ${x.parfumNom} ${x.formatLibelle}`}
                   />
                 </td>
                 <td className="num">
@@ -405,7 +413,7 @@ export function ParametresEditeur({
                     value={x.litresCommandes}
                     onChange={(e) => setLitres(i, e.target.value)}
                     placeholder="—"
-                    aria-label={`litres commandés ${x.parfumNom}`}
+                    aria-label={`litres commandés ${x.parfumNom} ${x.formatLibelle}`}
                   />
                 </td>
                 <td>
@@ -419,10 +427,10 @@ export function ParametresEditeur({
 
       <section className="mt-12 border-t border-filet pt-8">
         <h2 className="font-titre text-[24px] font-light text-encre"><Definition terme="faconnage">Façonnage</Definition></h2>
-        <p className="mt-1 text-[13px] text-lecture">Coût fixe de série réparti sur le lot, plus coût variable par unité. Les lignes de composants classées en façonnage s&apos;ajoutent à ce poste.</p>
+        <p className="mt-1 text-[13px] text-lecture">Coût fixe de série réparti sur le lot, plus coût variable par unité. Chaque parfum et chaque format ont leur propre ligne. Les lignes de composants classées en façonnage s&apos;ajoutent à ce poste.</p>
         <div className="mt-5 flex flex-col gap-5">
-          {facs.map((f, i) => <div key={f.formatId} className="flex flex-wrap items-end gap-4 border-b border-filet pb-5">
-            <span className="w-[90px] text-[15px]">{f.formatLibelle}</span>
+          {facs.map((f, i) => <div key={f.produitId} className="flex flex-wrap items-end gap-4 border-b border-filet pb-5">
+            <span className="w-[190px] text-[15px]">{f.parfumNom} · {f.formatLibelle}</span>
             {([ ["coutFixeSerie", "coût fixe / série"], ["coutVarUnitHT", "coût variable / unité"], ["qteLotRef", "quantité de lot"] ] as const).map(([cle, libelle]) =>
               <label key={cle} className="etiquette flex flex-col gap-1">{libelle}<input className="champ w-[150px]" inputMode={cle === "qteLotRef" ? "numeric" : "decimal"} value={f[cle]} onChange={(e) => setFacs((prev) => prev.map((item, j) => j === i ? { ...item, [cle]: e.target.value } : item))} /></label>
             )}

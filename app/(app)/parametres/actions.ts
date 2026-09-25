@@ -32,7 +32,7 @@ const schema = z.object({
   prixLiquides: z
     .array(
       z.object({
-        parfumId: z.string().min(1),
+        produitId: z.string().uuid(),
         prixLitreHT: decimalStr,
         /** Litres commandés ; null = effacer, absent = ne pas toucher. */
         litresCommandes: decimalStr.nullable().optional(),
@@ -68,7 +68,7 @@ const schema = z.object({
   faconnages: z
     .array(
       z.object({
-        formatId: z.string().min(1),
+        produitId: z.string().uuid(),
         coutFixeSerie: decimalStr,
         coutVarUnitHT: decimalStr,
         qteLotRef: z.number().int().positive(),
@@ -170,11 +170,11 @@ export async function enregistrerParametres(
     for (const p of prixLiquides) {
       const litres = p.litresCommandes === undefined ? {} : { litresCommandes: p.litresCommandes };
       const tva = p.tvaIncluse === undefined ? {} : { tvaIncluse: p.tvaIncluse };
-      await tx.prixLiquide.upsert({
-        where: { parfumId_dateEffet: { parfumId: p.parfumId, dateEffet } },
+      await tx.prixLiquideReference.upsert({
+        where: { produitId_dateEffet: { produitId: p.produitId, dateEffet } },
         update: { prixLitreHT: p.prixLitreHT, ...litres, ...tva },
         create: {
-          parfumId: p.parfumId,
+          produitId: p.produitId,
           prixLitreHT: p.prixLitreHT,
           litresCommandes: p.litresCommandes ?? null,
           tvaIncluse: p.tvaIncluse ?? false,
@@ -217,23 +217,15 @@ export async function enregistrerParametres(
       });
     }
     for (const f of faconnages) {
-      const memePeriode = await tx.faconnage.findFirst({
-        where: { formatId: f.formatId, dateEffet },
-      });
-      if (memePeriode) {
-        await tx.faconnage.update({
-          where: { id: memePeriode.id },
-          data: {
-            coutFixeSerie: f.coutFixeSerie,
-            coutVarUnitHT: f.coutVarUnitHT,
-            qteLotRef: f.qteLotRef,
-          },
-        });
-        continue;
-      }
-      await tx.faconnage.create({
-        data: {
-          formatId: f.formatId,
+      await tx.faconnageReference.upsert({
+        where: { produitId_dateEffet: { produitId: f.produitId, dateEffet } },
+        update: {
+          coutFixeSerie: f.coutFixeSerie,
+          coutVarUnitHT: f.coutVarUnitHT,
+          qteLotRef: f.qteLotRef,
+        },
+        create: {
+          produitId: f.produitId,
           coutFixeSerie: f.coutFixeSerie,
           coutVarUnitHT: f.coutVarUnitHT,
           qteLotRef: f.qteLotRef,
